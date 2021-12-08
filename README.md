@@ -5,7 +5,7 @@
 - 使用axios负责进行前后端的请求和交互
 - 使用mysql作为项目的数据库存储数据。(数据库文件见代码目录下的UserData.sql)
 
-使用上述的四个技术完成登录、注册功能（包含验证码、密码强度验证）。
+使用上述的四个技术完成登录、注册功能（包含验证码、密码强度验证、密码加密）。
 
 # 2.环境搭建
 
@@ -65,6 +65,10 @@ app.use(cors({
 安装和配置mysql后在mysql下创建UserData数据库，在该数据库下创建表（这里使用Navicat Premium来可视化创建）。表的内容形式如下：（包含username和password两个属性，其中username是键）
 ![](img/1.png)
 
+## 2.6 密码加密
+
+使用`cnpm install bcryptjs`命令安装bcrypt对密码进行加密。
+
 # 3. 代码介绍
 
 ## 3.1 登录页面
@@ -72,28 +76,24 @@ app.use(cors({
 1. 主要的html代码如下，包含用户名、密码和验证码输入框，登录和注册按钮。点击验证码框会调用checkCode()方法随机生成新的验证码，点击登录按钮会调用check()方法检查用户名、密码和验证码的正确性。
 
    ```html
-   <div class="item">
-       <input type="text" value="" placeholder="请输入用户名" id="username">
-   </div>
-   <div class="item">
-       <input type="password" value="" placeholder="请输入密码" id="password">
-   </div>
-   <div class="item">
-       <input type="text" value="" placeholder="请输入验证码" id="text">
-       <canvas id="canvas" width="100" height="40" onclick="checkCode()"
-               style="border: 2px solid black;background: aqua;"></canvas>
-   </div>
+   <input type="text" value="" placeholder="请输入用户名" id="username" class="item">
+   <input type="password" value="" placeholder="请输入密码" id="password" class="item">
+   <input type="text" value="" placeholder="请输入验证码" id="text" class="item">
+   <br>
+   <canvas id="canvas" width="100px" height="35px" onclick="checkCode()"
+           style="margin-top:15px; border: 2px solid black;background: aqua;"></canvas>
+   <br>
    <button value="Login" class="log" onclick="check()">
        登录
    </button>
    <div class="font">
-      没有账户？
-      <button value="Register" class="register">
-        	<a href="Register.html" class="href">注册</a>
-      </button>
+       没有账户？
+       <button value="Register" class="register">
+           <a href="Register.html" class="href">注册</a>
+       </button>
    </div>
    ```
-
+   
 2. 验证码生成的过程如下：
 
    ```javascript
@@ -132,7 +132,7 @@ app.use(cors({
      ```javascript
      var username = document.getElementById("username").value;
      var password = document.getElementById("password").value;
-     var val = document.getElementById("text").value;
+     var val = document.getElementById("text").value; // 验证码
      ```
 
    - 判断用户输入的验证码的正确性，若不正确或者未输入则做出相应的提示。若验证码正确则使用axios请求nodejs搭建的后端根据用户输入的用户名获得对应的密码，与用户输入的密码进行对比，判断密码的正确性。密码正确则跳入图片库页面。（这里后端的地址为http://127.0.0.1:8081/login，因此axios的get方法的第一个参数为http://127.0.0.1:8081/login）
@@ -140,23 +140,22 @@ app.use(cors({
      ```javascript
      axios.get('http://127.0.0.1:8081/login', {
          params: {
-             username: username
+             username: username,
+             password: password
          }
      }).then((res) => {
          // 密码正确
-         //console.log(res);
-         if (res.data.length!==0) {
-             if (res.data[0].password === password) {
-                 window.location.href = "imageDir.html";
-             } else {
-                 alert('密码错误！');
-             }
-         } else {
-             alert('用户名不存在！');
+         console.log(res.data);
+         if (res.data === true) {
+             window.location.href = "imageDir.html";
+         } else if (res.data === false) {
+             alert('用户名或密码错误！');
+         } else if (res.data === 1) {
+             alert('用户名或密码错误！');
          }
      });
      ```
-
+   
 4. nodejs（对应于static目录下的search.js）的实现如下：
 
    - 解决跨域问题（在我们的项目启动运行时，nodejs对应的后端运行在127.0.0.1:8081端口上，前端运行在localhost:63342端口上），使用先前引入的cors模块解决跨域问题。
@@ -165,6 +164,7 @@ app.use(cors({
      var express = require('express');
      var fs = require("fs");
      var app = express();
+     
      
      // 解决跨域问题
      var cors = require('cors');
@@ -177,10 +177,10 @@ app.use(cors({
      
      app.use(express.static(__dirname));
      ```
-
+   
    - 链接数据库，对数据库做相应的操作。get方法的第一个参数必须与axios请求的地址名字一样（这里对应的都是/login）。
-     使用`req.query.username`可以获得前端传过来的username参数，存在`response`变量中，使用`SELECT password FROM user WHERE username=response.username`查询语句即可根据用户名获得对应的密码。最后使用`res.send(result);`将查询到的结果返回到前端做进一步的处理和判断。
-
+     使用`req.query.username、req.query.password`可以获得前端传过来的username、password参数，存在`response`变量中，使用`SELECT password FROM user WHERE username=response.username`查询语句即可根据用户名获得对应的密码。最后使用判断密码是否相等，给前端相应的返回值。
+   
      ```javascript
      app.get('/login', function (req, res) {
          // 连接数据库
@@ -188,8 +188,7 @@ app.use(cors({
          var connection = mysql.createConnection({
              host: 'localhost',
              user: 'root',
-           // password替换为本地数据库的密码
-             password: 'xxxxxx',
+             password: 'xxxxxxxx',
              port: '3306',
              database: 'UserData'
          });
@@ -198,33 +197,43 @@ app.use(cors({
      
          // 获得前端传递过来的参数
          var response = {
-             "username":req.query.username
+             "username": req.query.username,
+             "password": req.query.password
          };
+     
          // 根据用户名查询对应的密码，进行登录验证
          var sql = "SELECT password FROM user WHERE username=(?)";
-         var  sqlParam = [response.username];
+         var sqlParam = [response.username];
          // 根据用户名查询对应密码进行验证
-         connection.query(sql,sqlParam, function (err, result) {
-            if (err) {
+         connection.query(sql, sqlParam, function (err, result) {
+             if (err) {
                  console.log('[SELECT ERROR] - ', err.message);
                  res.send(err);
                  return;
              }
-             console.log(result);
-             // 查询到的结果返回到前端
-             res.send(result);
+             // console.log(result);
+             if (result.length===0) {
+                 // 用户名不存在
+                 res.send("1");
+             } else {
+                 // 随机字符串
+                 var salt = bcryptjs.genSaltSync(10);
+                 // 判断密码是否相等
+                 var isEqual = bcryptjs.compareSync(response.password, result[0].password);
+                 // console.log(isEqual);
+                 res.send(isEqual);
+             }
          });
      
      
          connection.end();
      });
      ```
-
+     
    - 使用如下代码监听8081端口
-
+   
      ```javascript
      var server = app.listen(8081, function () {
-     
          var host = server.address().address;
          var port = server.address().port;
      });
@@ -234,7 +243,7 @@ app.use(cors({
 
 1. 主要的html代码如下，包含用户名、密码输入框以及和注册按钮。在输入密码时，会根据用户输入的密码判断密码的强弱等级，对用户作出提醒。点击注册按钮会调用register()方法向数据库添加用户的用户名以及密码数据。
 
-   ```javascript
+   ```html
    <div class="item">
        <input type="text" name="username" value="" placeholder="用户名" id="username">
    </div>
@@ -348,7 +357,7 @@ app.use(cors({
      ```
 
    - 链接数据库，对数据库做相应的操作。get方法的第一个参数必须与axios请求的地址名字一样（这里对应的都是/signUp）。
-     使用`req.query.username、req.query.password`可以获得前端传过来的username和password参数，存在`response`变量中，使用`INSERT INTO user(username,password) VALUES(response.username, response.password)`插入语句即可将用户名和密码插入到数据库中。最后使用`res.send(result);`将插入的结果返回到前端做进一步的处理和判断。
+     使用`req.query.username、req.query.password`可以获得前端传过来的username和password参数，存在`response`变量中，使用`INSERT INTO user(username,password) VALUES(response.username, response.password)`插入语句即可将用户名和加密后的密码插入到数据库中。最后使用`res.send(result);`将插入的结果返回到前端做进一步的处理和判断。
 
      ```javascript
      app.get('/signUp', function (req, res) {
@@ -370,29 +379,28 @@ app.use(cors({
              "username":req.query.username,
              "password":req.query.password
          };
-     
+         // 加密
+         const SALT_FACTOR = 10;
+         const password = bcryptjs.hashSync(response.password, bcryptjs.genSaltSync(SALT_FACTOR));
          // 插入新的用户名和密码数据
          var  addSql = 'INSERT INTO user(username,password) VALUES(?,?)';
-         var  addSqlParams = [response.username, response.password];
+         var  addSqlParams = [response.username, password];
          //增
          connection.query(addSql,addSqlParams,function (err, result) {
              if(err){
                  console.log('[INSERT ERROR] - ',err.message);
                  return;
              }
-     
              console.log(result);
              // 将结果返回到前端
              res.send(result);
          });
-     
-     
          connection.end();
      });
      ```
-
+     
    - 使用如下代码监听8081端口
-
+   
      ```javascript
      var server = app.listen(8081, function () {
      
@@ -402,7 +410,50 @@ app.use(cors({
      });
      ```
 
-# 3. 项目运行
+## 3.3 密码加密存储
+
+1. 在add.js中将用户注册时输入的密码添加到数据库时，使用bcryptjs对密码进行加密，具体代码如下：
+
+   ```javascript
+   const bcryptjs = require('bcryptjs');
+   // 加密
+   const SALT_FACTOR = 10;
+   const password = bcryptjs.hashSync(response.password, bcryptjs.genSaltSync(SALT_FACTOR));
+   ```
+
+   此时用户输入密码1234567
+   ![](img/8.png)
+
+   在数据库中存储的就是如下一串密码，可以看出相比之前的密码，已经进行了加密
+   ![](img/9.png)
+
+2. 在search.js中根据用户登录时输入的用户名对应的去处数据库相应用户名的密码时，需要进行解密并与用户输入的密码进行比较，具体代码如下。若查询结果的长度为0则代表用户不存在，返回1。否则进行解密后判断密码是否相等，相等则返回true，不相等则返回false。
+
+   ```javascript
+   const bcryptjs = require('bcryptjs');
+   
+   connection.query(sql, sqlParam, function (err, result) {
+       if (err) {
+           console.log('[SELECT ERROR] - ', err.message);
+           res.send(err);
+           return;
+       }
+       // console.log(result);
+       if (result.length===0) {
+           // 用户名不存在
+           res.send("1");
+       } else {
+           // 随机字符串
+           var salt = bcryptjs.genSaltSync(10);
+           // 判断密码是否相等
+           var isEqual = bcryptjs.compareSync(response.password, result[0].password);
+           // console.log(isEqual);
+           res.send(isEqual);
+       }
+   });
+   ```
+
+# 4. 项目运行
 
 1. 进入add.js所在的目录下后使用如下命令启动nodejs搭建的后端add.js
 
@@ -427,10 +478,9 @@ app.use(cors({
    ```
 
 4. 访问登录页面，使用刚刚注册的用户名和密码进行登录。登录成功，进入了图片库页面。
-   此时控制台输出了用户名对应的密码，可见根据用户名查找对应的密码的数据库操作成功。
-   ![](img/5.png)
-   若输入错误的密码或者用户名不存在，会做出如下提示：
-   ![](img/7.png)
-
+   
+4. 若输入错误的密码或者用户名不存在，会做出如下提示：
    ![](img/6.png)
+   
+   
 

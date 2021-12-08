@@ -2,12 +2,14 @@ var express = require('express');
 var fs = require("fs");
 var app = express();
 
+const bcryptjs = require('bcryptjs');
+
 // 解决跨域问题
 var cors = require('cors');
 app.use(cors({
-    origin:['http://localhost:63342'],
-    methods:['GET','POST'],
-    alloweHeaders:['Conten-Type', 'Authorization']
+    origin: ['http://localhost:63342'],
+    methods: ['GET', 'POST'],
+    alloweHeaders: ['Conten-Type', 'Authorization']
 }));
 
 
@@ -28,22 +30,32 @@ app.get('/login', function (req, res) {
 
     // 获得前端传递过来的参数
     var response = {
-        "username":req.query.username
+        "username": req.query.username,
+        "password": req.query.password
     };
 
     // 根据用户名查询对应的密码，进行登录验证
     var sql = "SELECT password FROM user WHERE username=(?)";
-    var  sqlParam = [response.username];
+    var sqlParam = [response.username];
     // 根据用户名查询对应密码进行验证
-    connection.query(sql,sqlParam, function (err, result) {
+    connection.query(sql, sqlParam, function (err, result) {
         if (err) {
             console.log('[SELECT ERROR] - ', err.message);
             res.send(err);
             return;
         }
-        console.log(result);
-        // 查询到的结果返回到前端
-        res.send(result);
+        // console.log(result);
+        if (result.length===0) {
+            // 用户名不存在
+            res.send("1");
+        } else {
+            // 随机字符串
+            var salt = bcryptjs.genSaltSync(10);
+            // 判断密码是否相等
+            var isEqual = bcryptjs.compareSync(response.password, result[0].password);
+            console.log(isEqual);
+            res.send(isEqual);
+        }
     });
 
 

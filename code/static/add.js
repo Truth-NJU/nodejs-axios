@@ -2,6 +2,9 @@ var express = require('express');
 var fs = require("fs");
 var app = express();
 
+// 使用bcryptjs进行加密
+const bcryptjs = require('bcryptjs');
+
 app.use(express.static(__dirname));
 
 // 解决跨域问题
@@ -33,9 +36,16 @@ app.get('/signUp', function (req, res) {
         "password":req.query.password
     };
 
+    // 加密
+    const SALT_FACTOR = 10;
+    // 加密后的密码存入数据库中
+    const password = bcryptjs.hashSync(response.password, bcryptjs.genSaltSync(SALT_FACTOR));
+
+
+
     // 插入新的用户名和密码数据
     var  addSql = 'INSERT INTO user(username,password) VALUES(?,?)';
-    var  addSqlParams = [response.username, response.password];
+    var  addSqlParams = [response.username, password];
     //增
     connection.query(addSql,addSqlParams,function (err, result) {
         if(err){

@@ -47,19 +47,18 @@
         } else if (val === num) {
             axios.get('http://127.0.0.1:8081/login', {
                 params: {
-                    username: username
+                    username: username,
+                    password: password
                 }
             }).then((res) => {
                 // 密码正确
-                //console.log(res);
-                if (res.data.length !== 0) {
-                    if (res.data[0].password === password) {
-                        window.location.href = "imageDir.html";
-                    } else {
-                        alert('密码错误！');
-                    }
-                } else {
-                    alert('用户名不存在！');
+                console.log(res.data);
+                if (res.data === true) {
+                    window.location.href = "imageDir.html";
+                } else if (res.data === false) {
+                    alert('用户名或密码错误！');
+                } else if (res.data === 1) {
+                    alert('用户名或密码错误！');
                 }
             });
 

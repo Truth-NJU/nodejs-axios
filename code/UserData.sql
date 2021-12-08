@@ -11,7 +11,7 @@
  Target Server Version : 80023
  File Encoding         : 65001
 
- Date: 07/12/2021 21:00:42
+ Date: 08/12/2021 16:26:45
 */
 
 SET NAMES utf8mb4;
@@ -31,7 +31,8 @@ CREATE TABLE `user` (
 -- Records of user
 -- ----------------------------
 BEGIN;
-INSERT INTO `user` VALUES ('Truth', 'Tzh13409@');
+INSERT INTO `user` VALUES ('qwee', '$2a$10$js1WBEA/dey0R98VhljXuO4FhA0ulJltK.BJLLqR.2.IiRqIXCW8K');
+INSERT INTO `user` VALUES ('Truth', '$2a$10$5GOpm.sR2M.HRJs1c1Q3kO8LbUWvL5lFA7vlkyjlKuQC/FfdmEKsq');
 INSERT INTO `user` VALUES ('tzh', '123456');
 COMMIT;
 
