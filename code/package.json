@@ -1,9 +1,0 @@
-{
-  "name": "code03",
-  "version": "1.0.0",
-  "dependencies": {
-    "axios": "latest",
-    "cors": "^2.8.5",
-    "express": "latest"
-  }
-}
